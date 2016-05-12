@@ -48,7 +48,7 @@
                 <key>source_path</key>
                 <string>%pathname%/VLC.app</string>
                 <key>destination_path</key>
-                <string>%pkgroot%/Applications/VLC.app</string>
+                <string>%pkgroot%/Applications/Utilities/VLC.app</string>
             </dict>
         </dict>
         <dict>
