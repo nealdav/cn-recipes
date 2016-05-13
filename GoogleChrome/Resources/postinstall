@@ -1,0 +1,179 @@
+#!/bin/sh
+
+#!/bin/sh
+
+# $1: full path to the installation package
+# $2: full path to the installation destination
+# $3: mountpoint of the destination volume
+# $4: root directory / for the current System folder
+
+
+# Example ACL changes
+#`chmod +a "everyone deny delete" "${3}/Applications"`
+#`/usr/sbin/pkgutil --learn "${3}/Applications"`
+
+# this s from the LANrev installer
+unset TMPDIR # we need this otherwise we have issues with Leopard when using Authorization framework 
+
+# these are for running installers on non booted volumes. probably not needed in installer scripts
+export INSTALL_TARGET_VOLUME="${3}"
+export COMMAND_LINE_INSTALL=1
+export CM_BUILD=CM_BUILD
+
+RESOURCES="${1}/Contents/Resources"
+
+###
+## Start our log file in ${3}/Library/Logs/CNP
+###
+
+date=`/bin/date "+%m%d%y%H%M%S"`
+logfile="googlechrome.$date"
+
+if [ -d "${3}/Library/Logs/CNP" ]; then
+echo "`date` - CNP folder exists" >> ${3}/Library/Logs/CNP/$logfile.log
+else
+mkdir ${3}/Library/Logs/CNP
+echo "`date` - CNP folder created" >> ${3}/Library/Logs/CNP/$logfile.log
+fi
+
+if [ "${3}" = / ]; then
+
+echo "We are installing on the running system" >> ${3}/Library/Logs/CNP/$logfile.log
+MAJOR_OS_VERSION=`/usr/bin/sw_vers | /usr/bin/sed -n -e '/^ProductVersion:/s/ProductVersion:[[:space:]]\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+FULL_OS_VERSION=`/usr/bin/sw_vers | /usr/bin/sed -n -e '/ProductVersion:/s/^ProductVersion:[[:space:]]\([0-9][0-9]*\.[0-9][0-9]*\.*[0-9]*\)/\1/p'`
+
+else
+
+echo "We are instlling on the disk  ${3}" >> ${3}/Library/Logs/CNP/$logfile.log
+MAJOR_OS_VERSION=`defaults read "${3}/System/Library/CoreServices/SystemVersion" ProductVersion | /usr/bin/sed -n -e '/10/s/\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+FULL_OS_VERSION=`defaults read "${3}/System/Library/CoreServices/SystemVersion" ProductVersion | /usr/bin/sed -n -e '/10/s/\([0-9][0-9]*\.[0-9][0-9]*\.*[0-9]*\)/\1/p'`
+
+fi
+
+if [ $? -ne 0 ]; then
+  echo "Couldn't determine OS version - maybe BSD subsystem is not installed?"
+  exit 1
+fi
+
+
+if [ "${MAJOR_OS_VERSION}" = "10.9" ]; then
+echo "Mavricks ${FULL_OS_VERSION}" >> ${3}/Library/Logs/CNP/$logfile.log
+fi
+
+if [ "${MAJOR_OS_VERSION}" = "10.10" ]; then
+echo "Mavricks ${FULL_OS_VERSION}" >> ${3}/Library/Logs/CNP/$logfile.log
+fi
+
+if [ "${MAJOR_OS_VERSION}" = "10.11" ]; then
+echo "Mavricks ${FULL_OS_VERSION}" >> ${3}/Library/Logs/CNP/$logfile.log
+fi
+
+
+if [ "${MAJOR_OS_VERSION}" = "10.9" -o "${MAJOR_OS_VERSION}" = "10.10" -o "${MAJOR_OS_VERSION}" = "10.11" ]; then
+
+
+#Find users on the Mac via DSCL
+
+if [ "${3}" = / ]; then
+all=$(/usr/bin/dscl . -list /Users uid | awk '$2 > 500 {print $1}' | sort )
+else
+
+if [ "${MAJOR_OS_VERSION}" = "10.9" -o "${MAJOR_OS_VERSION}" = "10.10" -o "${MAJOR_OS_VERSION}" = "10.11" ]; then
+
+all=$(/usr/bin/dscl -f "${3}/var/db/dslocal/nodes/Default" localonly -list /Local/Target/Users uid | awk '$2 > 500 {print $1}' | sort )
+fi
+fi
+
+users=$all 
+	
+echo "User list: $users" >> ${3}/Library/Logs/CNP/$logfile.log
+
+folder=
+
+cd "${dir}"
+
+for user in $users; do
+
+# ensure user has a home folder
+			
+			eval homedir="${3}/Users/$user"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+			if [ ! -e "$homedir" ]; then
+				echo Skipping user $user  - no home directory >> ${3}/Library/Logs/CNP/$logfile.log
+#break
+			else
+			
+				eval dest="${3}/Users/$user"
+echo $dest
+if [ ! -d "${dest}" ]; then
+				echo Skipping user $user  - no destination directory >> ${3}/Library/Logs/CNP/$logfile.log
+#break
+			else
+			grp=$(id -gn $user)
+			#mkdir -p "$dest/Library/Application Support/Google/Chrome"
+			#touch "$dest/Library/Application Support/Google/Chrome/First Run"
+			#chown -R "${user}":"${grp}" "$dest/Library/Application Support/Google"
+
+			/usr/bin/defaults write "$dest/Library/Preferences/com.google.Keystone.Agent" checkInterval 0
+			chown -R "${user}":"${grp}" "$dest/Library/Preferences/com.google.Keystone.Agent.plist"
+			echo chown -R "${user}":"${grp}" "$dest/Library/Preferences/com.google.Keystone.Agent.plist" >> ${3}/Library/Logs/CNP/$logfile.log
+				
+fi
+			fi
+		
+done
+
+fi
+
+
+BROWSER_HOMEPAGE=http://connect.condenast.com
+## BEGIN CHROME
+if [ -d "$3/Library/Google" ]
+then
+	echo "Google Library Folder Exists!"
+else
+	mkdir "$3/Library/Google/"
+	chmod -R 755 "$3/Library/Google/"
+	chown -R root:wheel "$3/Library/Google/"
+fi
+
+#Clear out any old pref
+if [ -e $3/Library/Google/Google\ Chrome\ Master\ Preferences ];then
+rm -f $3/Library/Google/Google\ Chrome\ Master\ Preferences
+fi
+
+cat << EOF > "$3/Library/Google/Google Chrome Master Preferences"
+{
+  "homepage" : "$BROWSER_HOMEPAGE",
+  "homepage_is_newtabpage" : false,
+  "browser" : {
+    "show_home_button" : true,
+    "check_default_browser" : false
+  },
+  "bookmark_bar" : {
+    "show_on_all_tabs" : true
+  },
+  "distribution" : {
+    "show_welcome_page" : false,
+    "skip_first_run_ui" : true,
+    "import_history" : false,
+    "import_bookmarks" : false,
+    "import_home_page" : false,
+    "import_search_engine" : false
+  },
+  "sync_promo" : {
+    "user_skipped" : true
+  },
+  "first_run_tabs" : [
+    "$BROWSER_HOMEPAGE"
+  ]
+}
+EOF
+
+chmod 744 "${3}/Library/Google/Google\ Chrome\ Master\ Preferences"
+chown root:staff "${3}/Library/Google/Google\ Chrome\ Master\ Preferences"
+
+/usr/bin/defaults write "${3}/System/Library/User Template/English.lproj/Library/Preferences/com.google.Keystone.Agent" checkInterval 0
+chmod 755 "${3}/System/Library/User Template/English.lproj/Library/Preferences/com.google.Keystone.Agent.plist"
+
+## END CHROME
